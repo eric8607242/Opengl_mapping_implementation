@@ -17,12 +17,26 @@
 unsigned int planeVAO;
 int shadow_width = 1024;
 int shadow_height = 1024;
+const unsigned int SCR_WIDTH = 1024;
+const unsigned int SCR_HEIGHT = 768;
 
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void processInput(GLFWwindow* window);
 void renderScene(Program &shader, StaticMesh &mesh, float degree);
 static void error_callback(int error, const char* description)
 {
     std::cerr<<fmt::format("Error: {0}\n", description);
 }
+
+
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+float lastX = SCR_WIDTH / 2.0f;
+float lastY = SCR_HEIGHT / 2.0f;
+bool firstMouse = true;
+
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
 
 int main(void)
 {
@@ -44,6 +58,10 @@ int main(void)
     if(!gladLoadGL()) {
         exit(EXIT_FAILURE);
     }
+    
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
     // Setup Dear ImGui binding
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -117,8 +135,6 @@ int main(void)
     float degree = 0.0f;
     glm::vec3 object_color{1.0f};
 
-    glm::vec3 light_pos = glm::vec3(2.0f, -2.0f, 10.0f);
-    glm::vec3 light_center = glm::vec3(0.0f);
     float specular_s = 0.0f;
     float ambient_s = 0.0f;
 
@@ -129,19 +145,30 @@ int main(void)
     glEnable(GL_DEPTH_TEST);
     while (!glfwWindowShouldClose(window))
     {
+        glm::vec3 light_pos = camera.Position;
+        glm::vec3 light_center = camera.Position + camera.Front;
+
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        processInput(window);
+
+
         glfwPollEvents();
 
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // 1. render depth of scene to texture
-        float near_plane = 0.1f, far_plane = 10000.0f;
+        float near_plane = 0.1f, far_plane = 10.0f;
 
         glm::mat4 lightprojection, lightview;
         glm::mat4 lightspacematrix;
         //lightprojection = glm::ortho(-5.0f, 5.0f, -3.0f, 3.0f, near_plane, far_plane);
         lightprojection = glm::perspective(90.0f/180.0f*3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
-        lightview = glm::lookAt(light_pos, light_center, glm::vec3(0.0, 1.0, 0.0));
+        //lightview = glm::lookAt(light_pos, camera.Front, glm::vec3(0.0, 1.0, 0.0));
+        lightview = camera.GetViewMatrix();
         lightspacematrix = lightprojection * lightview;
         depthshader.use();
         depthshader["lightspacematrix"] = lightspacematrix;
@@ -160,15 +187,14 @@ int main(void)
 
         prog.use();
         prog["lightspacematrix"] = lightspacematrix;
-        prog["vp"] = glm::perspective(45/180.0f*3.1415926f, 1024.0f/768.0f, 0.1f, 10000.0f)*
-            glm::lookAt(glm::vec3{0, 0, 10}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
+        prog["vp"] = glm::perspective(45/180.0f*3.1415926f, 1024.0f/768.0f, 0.1f, 10000.0f)*camera.GetViewMatrix();
         prog["object_color"] = object_color;
 
         prog["light_pos"] = light_pos;
         prog["eye_pos"] = glm::vec3{0, 0, 10};
         prog["specular_s"] = specular_s;
         prog["ambient_s"] = ambient_s;
-        prog["cutoff"] = glm::cos(glm::radians(30.0f));
+        prog["cutoff"] = glm::cos(glm::radians(15.0f));
         prog["light_center"] = light_center;
 
         text.bindToChannel(0);
@@ -229,4 +255,37 @@ void renderScene(Program &shader, StaticMesh &mesh, float degree){
 
     shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 1.0f, -3.0f))*glm::rotate(glm::mat4(1.0f), degree*3.1415926f/180.0f, glm::vec3(0, 1, 0));
     mesh.draw();
+}
+
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.ProcessKeyboard(FORWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.ProcessKeyboard(LEFT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.ProcessKeyboard(RIGHT, deltaTime);
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    if(firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos;
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
 }
