@@ -14,6 +14,7 @@
 #include "utils/imgui_impl_glfw.h"
 #include "main.h"
 
+
 unsigned int planeVAO;
 int shadow_width = 1024;
 int shadow_height = 1024;
@@ -59,7 +60,7 @@ int main(void)
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    auto text = Texture2D::LoadFromFile("../resource/image.png");
+    // auto text = Texture2D::LoadFromFile("../resource/image.png");
     auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj");
     auto prog = Program::LoadFromFile(
         "../resource/vs.vert",
@@ -105,7 +106,7 @@ int main(void)
 
     {
     // text and mesh, shader => garbage collector
-    auto g1 = Protect(text);
+    // auto g1 = Protect(text);
     auto g2 = Protect(mesh);
     auto g3 = Protect(prog);
 
@@ -123,10 +124,12 @@ int main(void)
     float ambient_s = 0.0f;
 
     prog.use();
-    prog["text"] = 0;
+    // prog["text"] = 0;
     prog["shadowMap"] = 1;
 
     glEnable(GL_DEPTH_TEST);
+    
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -171,7 +174,7 @@ int main(void)
         prog["cutoff"] = glm::cos(glm::radians(30.0f));
         prog["light_center"] = light_center;
 
-        text.bindToChannel(0);
+        // text.bindToChannel(0);
         shadow.bindToChannel(1);
         renderScene(prog, mesh, degree);
         {
