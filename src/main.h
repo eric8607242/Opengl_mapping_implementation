@@ -6,5 +6,5 @@
 #include "ShaderProgram.h"
 #include "ScopeResource.h"
 #include "ShadowMap.h"
-
+#include "Camera.h"
 #endif
