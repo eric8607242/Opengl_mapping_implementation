@@ -14,21 +14,24 @@
 #include "utils/imgui_impl_glfw.h"
 #include "main.h"
 
+#define MAZE_ROW 17
+#define MAZE_COL 14
 
-unsigned int planeVAO;
+unsigned int planeVAO, cubeVAO;
 int shadow_width = 1024;
 int shadow_height = 1024;
 const unsigned int SCR_WIDTH = 1024;
 const unsigned int SCR_HEIGHT = 768;
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void processInput(GLFWwindow* window);
-void renderScene(Program &shader, StaticMesh &mesh, float degree);
-static void error_callback(int error, const char* description)
-{
-    std::cerr<<fmt::format("Error: {0}\n", description);
-}
 
+void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void processInput(GLFWwindow *window);
+void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree, int maze[MAZE_ROW][MAZE_COL]);
+void drawMaze(Program &shader, StaticMesh &cubeMesh, int maze[MAZE_ROW][MAZE_COL]);
+static void error_callback(int error, const char *description)
+{
+    std::cerr << fmt::format("Error: {0}\n", description);
+}
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = SCR_WIDTH / 2.0f;
@@ -38,10 +41,9 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-
 int main(void)
 {
-    GLFWwindow* window;
+    GLFWwindow *window;
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -56,17 +58,19 @@ int main(void)
         exit(EXIT_FAILURE);
     }
     glfwMakeContextCurrent(window);
-    if(!gladLoadGL()) {
+    if (!gladLoadGL())
+    {
         exit(EXIT_FAILURE);
     }
-    
+
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Setup Dear ImGui binding
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGuiIO &io = ImGui::GetIO();
+    (void)io;
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
 
@@ -78,36 +82,56 @@ int main(void)
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    // auto text = Texture2D::LoadFromFile("../resource/image.png");
+    auto text = Texture2D::LoadFromFile("../resource/image.png");
     auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj");
+    auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj");
+
     auto prog = Program::LoadFromFile(
         "../resource/vs.vert",
         "../resource/gs.geom",
-        "../resource/fs.frag"
-    );
+        "../resource/fs.frag");
     auto prog2 = Program::LoadFromFile(
         "../resource/vs.vert",
         "../resource/gs.geom",
-        "../resource/fs_light.frag"
-    );
+        "../resource/fs_light.frag");
     auto depthshader = Program::LoadFromFile(
         "../resource/depth.vert",
-        "../resource/depth.frag"      
-    );
+        "../resource/depth.frag");
     auto shadow = ShadowMap::LoadDepth(shadow_width, shadow_height);
     shadow.attach();
 
-
     float planeVertices[] = {
         25.0f, 25.0f, -1.5f, 25.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-       -25.0f, 25.0f, -1.5f,  0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-       -25.0f,-25.0f, -1.5f,  0.0f,25.0f, 0.0f, 0.0f, 1.0f,
+        -25.0f, 25.0f, -1.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+        -25.0f, -25.0f, -1.5f, 0.0f, 25.0f, 0.0f, 0.0f, 1.0f,
 
         25.0f, 25.0f, -1.5f, 25.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-       -25.0f,-25.0f, -1.5f,  0.0f,25.0f, 0.0f, 0.0f, 1.0f,
-        25.0f,-25.0f, -1.5f, 25.0f,25.0f, 0.0f, 0.0f, 1.0f
+        -25.0f, -25.0f, -1.5f, 0.0f, 25.0f, 0.0f, 0.0f, 1.0f,
+        25.0f, -25.0f, -1.5f, 25.0f, 25.0f, 0.0f, 0.0f, 1.0f};
+
+    int maze[MAZE_ROW][MAZE_COL] = {
+        {1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+        {1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1},
+        {1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
+        {1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1},
+        {1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+        {1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1},
+        {1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1}
+
     };
+
     
+    // plane vertex buffer configuration
     unsigned int planeVBO;
     glGenVertexArrays(1, &planeVAO);
     glGenBuffers(1, &planeVBO);
@@ -115,152 +139,160 @@ int main(void)
     glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(5 * sizeof(float)));
     glBindVertexArray(0);
 
     {
-    // text and mesh, shader => garbage collector
-    // auto g1 = Protect(text);
-    auto g2 = Protect(mesh);
-    auto g3 = Protect(prog);
+        // text and mesh, shader => garbage collector
+        auto g1 = Protect(text);
+        auto g2 = Protect(mesh);
+        auto g3 = Protect(prog);
+        auto g4 = Protect(cubeMesh);
 
-    if(!mesh.hasNormal()||!mesh.hasUV()) {
-        std::cerr<<"Mesh does not have normal or uv\n";
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-    }
+        if (!mesh.hasNormal() || !mesh.hasUV())
+        {
+            std::cerr << "sphereMesh does not have normal or uv\n";
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
 
-    float degree = 0.0f;
-    glm::vec3 object_color{1.0f};
+        if (!cubeMesh.hasNormal() || !cubeMesh.hasUV()) {
+            std::cerr << "cubeMesh does not have normal or uv\n";
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
 
-    float specular_s = 0.0f;
-    float ambient_s = 0.0f;
+        float degree = 0.0f;
+        glm::vec3 object_color{1.0f};
 
-    prog.use();
-    // prog["text"] = 0;
-    prog["shadowMap"] = 1;
-
-    glEnable(GL_DEPTH_TEST);
-    
-
-    while (!glfwWindowShouldClose(window))
-    {
-        glm::vec3 light_pos = camera.Position;
-        glm::vec3 light_center = camera.Position + camera.Front;
-
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
-        processInput(window);
-
-
-        glfwPollEvents();
-
-        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // 1. render depth of scene to texture
-        float near_plane = 0.1f, far_plane = 10.0f;
-
-        glm::mat4 lightprojection, lightview;
-        glm::mat4 lightspacematrix;
-        //lightprojection = glm::ortho(-5.0f, 5.0f, -3.0f, 3.0f, near_plane, far_plane);
-        lightprojection = glm::perspective(90.0f/180.0f*3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
-        //lightview = glm::lookAt(light_pos, camera.Front, glm::vec3(0.0, 1.0, 0.0));
-        lightview = camera.GetViewMatrix();
-        lightspacematrix = lightprojection * lightview;
-        depthshader.use();
-        depthshader["lightspacematrix"] = lightspacematrix;
-
-        shadow.generate();
-        renderScene(depthshader, mesh, degree);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glViewport(0, 0, display_w, display_h);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        float specular_s = 0.0f;
+        float ambient_s = 0.0f;
 
         prog.use();
-        prog["lightspacematrix"] = lightspacematrix;
-        prog["vp"] = glm::perspective(45/180.0f*3.1415926f, 1024.0f/768.0f, 0.1f, 10000.0f)*camera.GetViewMatrix();
-        prog["object_color"] = object_color;
+        prog["text"] = 0;
+        prog["shadowMap"] = 1;
 
-        prog["light_pos"] = light_pos;
-        prog["eye_pos"] = glm::vec3{0, 0, 10};
-        prog["specular_s"] = specular_s;
-        prog["ambient_s"] = ambient_s;
-        prog["cutoff"] = glm::cos(glm::radians(15.0f));
-        prog["light_center"] = light_center;
+        glEnable(GL_DEPTH_TEST);
 
-        // text.bindToChannel(0);
-        shadow.bindToChannel(1);
-        renderScene(prog, mesh, degree);
+        while (!glfwWindowShouldClose(window))
         {
-            prog2["vp"] = glm::perspective(45/180.0f*3.1415926f, 1024.0f/768.0f, 0.1f, 10000.0f)*
-            glm::lookAt(glm::vec3{0, 0, 10}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
-            prog2["model"] = glm::translate(glm::mat4(1.0f), light_pos)*glm::scale(glm::mat4(1.0f), glm::vec3{0.2f});
+            glm::vec3 light_pos = camera.Position;
+            glm::vec3 light_center = camera.Position + camera.Front;
 
-            prog2.use();
-            //mesh.draw();
+            float currentFrame = glfwGetTime();
+            deltaTime = currentFrame - lastFrame;
+            lastFrame = currentFrame;
+
+            processInput(window);
+
+            glfwPollEvents();
+
+            glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // 1. render depth of scene to texture
+            float near_plane = 0.1f, far_plane = 10.0f;
+
+            glm::mat4 lightprojection, lightview;
+            glm::mat4 lightspacematrix;
+            //lightprojection = glm::ortho(-5.0f, 5.0f, -3.0f, 3.0f, near_plane, far_plane);
+            lightprojection = glm::perspective(90.0f / 180.0f * 3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
+            //lightview = glm::lookAt(light_pos, camera.Front, glm::vec3(0.0, 1.0, 0.0));
+            lightview = camera.GetViewMatrix();
+            lightspacematrix = lightprojection * lightview;
+            depthshader.use();
+            depthshader["lightspacematrix"] = lightspacematrix;
+
+            shadow.generate();
+            renderScene(depthshader, mesh, cubeMesh, degree, maze);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            int display_w, display_h;
+            glfwGetFramebufferSize(window, &display_w, &display_h);
+            glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glViewport(0, 0, display_w, display_h);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            prog.use();
+            prog["lightspacematrix"] = lightspacematrix;
+            prog["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) * camera.GetViewMatrix();
+            prog["object_color"] = object_color;
+
+            prog["light_pos"] = light_pos;
+            prog["eye_pos"] = glm::vec3{0, 0, 10};
+            prog["specular_s"] = specular_s;
+            prog["ambient_s"] = ambient_s;
+            prog["cutoff"] = glm::cos(glm::radians(15.0f));
+            prog["light_center"] = light_center;
+
+            text.bindToChannel(0);
+            shadow.bindToChannel(1);
+            renderScene(prog, mesh, cubeMesh, degree, maze);
+            {
+                prog2["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) *
+                              glm::lookAt(glm::vec3{0, 0, 10}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
+                prog2["model"] = glm::translate(glm::mat4(1.0f), light_pos) * glm::scale(glm::mat4(1.0f), glm::vec3{0.2f});
+
+                prog2.use();
+                //mesh.draw();
+            }
+
+            // Start the Dear ImGui frame
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+            {
+                ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
+
+                ImGui::SliderFloat("degree", &degree, 0.0f, 360.0f); // Edit 1 float using a slider from 0.0f to 1.0f
+                ImGui::SliderFloat("Specular", &specular_s, 0, 1);
+                ImGui::SliderFloat("Ambient", &ambient_s, 0, 1);
+                ImGui::ColorEdit3("clear color", (float *)&clear_color);         // Edit 3 floats representing a color
+                ImGui::ColorEdit3("object color", glm::value_ptr(object_color)); // Edit 3 floats representing a color
+                ImGui::SliderFloat2("Position", glm::value_ptr(light_center), -10, 10);
+
+                ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+                ImGui::End();
+            }
+
+            // Rendering
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+            glfwSwapBuffers(window);
         }
-
-        // Start the Dear ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-        {
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-            ImGui::SliderFloat("degree", &degree, 0.0f, 360.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::SliderFloat("Specular", &specular_s, 0, 1);
-            ImGui::SliderFloat("Ambient", &ambient_s, 0, 1);
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-            ImGui::ColorEdit3("object color", glm::value_ptr(object_color)); // Edit 3 floats representing a color
-            ImGui::SliderFloat2("Position", glm::value_ptr(light_center), -10, 10);
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::End();
-        }
-
-        // Rendering
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        glfwSwapBuffers(window);
-            
-    }
-
     }
     glfwDestroyWindow(window);
     glfwTerminate();
     exit(EXIT_SUCCESS);
 }
 
-void renderScene(Program &shader, StaticMesh &mesh, float degree){
-    //draw plane
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, -10.0f));
+void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree, int maze[MAZE_ROW][MAZE_COL])
+{
+    // draw plane
+    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
     glBindVertexArray(planeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    //draw ball
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, -2.0f, 2.0f))*glm::rotate(glm::mat4(1.0f), degree*3.1415926f/180.0f, glm::vec3(0, 1, 0));
+    // draw ball
+    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), degree * 3.1415926f / 180.0f, glm::vec3(0, 1, 0));
     mesh.draw();
 
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 1.0f, -3.0f))*glm::rotate(glm::mat4(1.0f), degree*3.1415926f/180.0f, glm::vec3(0, 1, 0));
+    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.0f)) * glm::rotate(glm::mat4(1.0f), degree * 3.1415926f / 180.0f, glm::vec3(0, 1, 0));
     mesh.draw();
+
+    // draw maze
+    drawMaze(shader, cubeMesh, maze);
+
 }
 
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -275,9 +307,9 @@ void processInput(GLFWwindow* window)
         camera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 {
-    if(firstMouse)
+    if (firstMouse)
     {
         lastX = xpos;
         lastY = ypos;
@@ -291,4 +323,15 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     lastY = ypos;
 
     camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+void drawMaze(Program &shader, StaticMesh &cubeMesh, int maze[MAZE_ROW][MAZE_COL]) {
+    for (int i = 0; i < MAZE_ROW; i++) {
+        for (int j = 0; j < MAZE_COL; j++) {
+            if (maze[i][j] == 1) {
+                shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(i, 0.5f, j));
+                cubeMesh.draw();
+            }
+        }
+    }
 }

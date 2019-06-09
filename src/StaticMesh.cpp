@@ -38,7 +38,7 @@ StaticMesh StaticMesh::LoadMesh(const std::string &filename)
     ret.smooth_n = shapes[0].mesh.normals;
     ret.smooth_i = shapes[0].mesh.indices;
 
-    // Upload postion array
+    // Upload position array
     glBindBuffer(GL_ARRAY_BUFFER, ret.vbo[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * shapes[0].mesh.positions.size(),
         shapes[0].mesh.positions.data(), GL_STATIC_DRAW);
@@ -58,6 +58,7 @@ StaticMesh StaticMesh::LoadMesh(const std::string &filename)
     }
 
     if (shapes[0].mesh.normals.size() > 0) {
+
         // Upload normal array
         glBindBuffer(GL_ARRAY_BUFFER, ret.vbo[2]);
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * shapes[0].mesh.normals.size(),
