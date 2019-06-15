@@ -23,7 +23,6 @@ int shadow_height = 1024;
 const unsigned int SCR_WIDTH = 1024;
 const unsigned int SCR_HEIGHT = 768;
 
-
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void processInput(GLFWwindow *window);
 void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree, int maze[MAZE_ROW][MAZE_COL]);
@@ -33,7 +32,10 @@ static void error_callback(int error, const char *description)
     std::cerr << fmt::format("Error: {0}\n", description);
 }
 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 1.0f, 7.0f));
+// define wall face objects
+std::vector<WallPlane> wallPlanes;
+
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -81,7 +83,6 @@ int main(void)
     ImGui::StyleColorsDark();
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
     auto text = Texture2D::LoadFromFile("../resource/image.png");
     auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj");
     auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj");
@@ -130,7 +131,6 @@ int main(void)
 
     };
 
-    
     // plane vertex buffer configuration
     unsigned int planeVBO;
     glGenVertexArrays(1, &planeVAO);
@@ -159,7 +159,8 @@ int main(void)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
-        if (!cubeMesh.hasNormal() || !cubeMesh.hasUV()) {
+        if (!cubeMesh.hasNormal() || !cubeMesh.hasUV())
+        {
             std::cerr << "cubeMesh does not have normal or uv\n";
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
@@ -223,7 +224,7 @@ int main(void)
             prog["object_color"] = object_color;
 
             prog["light_pos"] = light_pos;
-            prog["eye_pos"] = glm::vec3{0, 0, 10};
+            prog["eye_pos"] = glm::vec3{0, 0, 10}; // set to the entrance of maze
             prog["specular_s"] = specular_s;
             prog["ambient_s"] = ambient_s;
             prog["cutoff"] = glm::cos(glm::radians(15.0f));
@@ -280,16 +281,8 @@ void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float 
     glBindVertexArray(planeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    // draw ball
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), degree * 3.1415926f / 180.0f, glm::vec3(0, 1, 0));
-    mesh.draw();
-
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.0f)) * glm::rotate(glm::mat4(1.0f), degree * 3.1415926f / 180.0f, glm::vec3(0, 1, 0));
-    mesh.draw();
-
     // draw maze
     drawMaze(shader, cubeMesh, maze);
-
 }
 
 void processInput(GLFWwindow *window)
@@ -325,13 +318,40 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
-void drawMaze(Program &shader, StaticMesh &cubeMesh, int maze[MAZE_ROW][MAZE_COL]) {
-    for (int i = 0; i < MAZE_ROW; i++) {
-        for (int j = 0; j < MAZE_COL; j++) {
-            if (maze[i][j] == 1) {
-                shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(i, 0.5f, j));
+void drawMaze(Program &shader, StaticMesh &cubeMesh, int maze[MAZE_ROW][MAZE_COL])
+{
+
+    std::vector<GLfloat> vert_pos;
+    for (int i = 0; i < MAZE_ROW; i++)
+    {
+        for (int j = 0; j < MAZE_COL; j++)
+        {
+            if (maze[i][j] == 1)
+            {
+                shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(i, 0.5f, j)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.5f, 1.0f));
                 cubeMesh.draw();
+                
+                // store all horizontal faces (translated) of cube meshes
+                for (int i = 0; i < cubeMesh.smooth_n.size(); i+=3) {
+                    vert_pos.clear();
+                    if (cubeMesh.smooth_n[i] != 0 || cubeMesh.smooth_n[i+2] != 0) {
+                        
+                        vert_pos.push_back(cubeMesh.smooth_position[i] + i);
+                        vert_pos.push_back(cubeMesh.smooth_position[i+1] + 0.5f);
+                        vert_pos.push_back(cubeMesh.smooth_position[i+2] + j);
+
+                        wallPlanes.push_back(WallPlane(vert_pos));
+                    }
+                }
+                
             }
         }
     }
+
+    // for (std::vector<WallPlane>::const_iterator it = wallPlanes.begin(); it != wallPlanes.end(); it++) {
+    //     it.showPlanes();
+
+    //     std::cout << std::endl;
+    // }
+
 }

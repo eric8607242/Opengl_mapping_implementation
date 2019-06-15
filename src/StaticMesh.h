@@ -19,7 +19,7 @@ public:
 
     bool operator!=(const StaticMesh &rhs) const
     { return vao != rhs.vao; }
-private:
+
     StaticMesh();
     GLuint vao;
     GLuint vbo[3];

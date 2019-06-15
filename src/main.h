@@ -7,4 +7,6 @@
 #include "ScopeResource.h"
 #include "ShadowMap.h"
 #include "Camera.h"
+#include "WallPlane.h"
+
 #endif
