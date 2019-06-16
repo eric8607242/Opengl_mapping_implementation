@@ -178,7 +178,6 @@ int main(void)
         // store horizontal wall planes (not including blocked ones)
         wallPlanes = WallPlane::storeWallPlanes(maze, cubeMesh);
 
-        wallPlanes[200].printWallVertices();
 
         float degree = 0.0f;
         glm::vec3 object_color{1.0f};
@@ -257,10 +256,30 @@ int main(void)
                 //mesh.draw();
             }
 
-            // collision detection (needs bounding box detection too)
+            GLfloat xMin, xMax, zMin, zMax;
+            // collision detection
             for (int i = 0; i < wallPlanes.size(); i++) {
-                if (WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.05) {
-                    std::cout << "Collided with wall." << std::endl;
+                xMin = wallPlanes[i].wall_vertices[0];
+                xMax = wallPlanes[i].wall_vertices[3];
+                zMin = wallPlanes[i].wall_vertices[2];
+                zMax = wallPlanes[i].wall_vertices[5];
+                
+                if (xMin > xMax) {
+                    std::swap(xMin, xMax);
+                }
+
+                if (zMin > zMax) {
+                    std::swap(zMin, zMax);
+                }
+                
+                bool inXRange = (zMin == zMax) && (camera.Position.x >= xMin && camera.Position.x <= xMax);
+                bool inZRange = (xMin == xMax) && (camera.Position.z >= zMin && camera.Position.z <= zMax);
+                
+                if (WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.2) {
+                    // also inside wall plane X or Z min/max bound ??
+                    if (inXRange || inZRange) {
+                        std::cout << "Collided. " << i << std::endl;
+                    }
                 }
             }
 

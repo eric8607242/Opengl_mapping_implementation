@@ -9,5 +9,6 @@
 #include "Camera.h"
 #include "WallPlane.h"
 #include "Maze.h"
+#include <algorithm>
 
 #endif
