@@ -6,13 +6,21 @@
 #include <glm/glm.hpp>
 #include <iostream>
 #include <string>
+#include "StaticMesh.h"
+
+#define MAZE_ROW 17
+#define MAZE_COL 14
 
 class WallPlane {
     public:
-        WallPlane(std::vector<GLfloat> vertices_pos);
-        std::vector<GLfloat> vertices;
+        WallPlane(std::vector<GLfloat> vertices_pos, std::vector<GLfloat> normals);
+        std::vector<GLfloat> wall_vertices;
+        std::vector<GLfloat> wall_normals;
 
-        void showPlanes();
+        void printWallVertices();
+        void printWallNormals();
+
+        static std::vector<WallPlane> storeWallPlanes(int maze[MAZE_ROW][MAZE_COL], StaticMesh &cubeMesh);
 };
 
 

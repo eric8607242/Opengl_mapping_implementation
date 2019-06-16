@@ -8,5 +8,6 @@
 #include "ShadowMap.h"
 #include "Camera.h"
 #include "WallPlane.h"
+#include "Maze.h"
 
 #endif
