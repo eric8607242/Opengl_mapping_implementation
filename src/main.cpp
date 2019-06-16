@@ -2,6 +2,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <iomanip>
 #include <cstdlib>
 #define GLM_FORCE_RADIAN
 #include <glm/glm.hpp>
@@ -31,6 +32,7 @@ static void error_callback(int error, const char *description)
 }
 
 Camera camera(glm::vec3(0.0f, 1.0f, 7.0f));
+
 // define wall face objects
 std::vector<WallPlane> wallPlanes;
 
@@ -173,9 +175,10 @@ int main(void)
         // maze initialize
         maze -> init(map);
 
-        // store horizontal wall planes
-        wallPlanes = WallPlane::storeWallPlanes(maze -> map, cubeMesh);
-        
+        // store horizontal wall planes (not including blocked ones)
+        wallPlanes = WallPlane::storeWallPlanes(maze, cubeMesh);
+
+        wallPlanes[200].printWallVertices();
 
         float degree = 0.0f;
         glm::vec3 object_color{1.0f};
@@ -247,13 +250,21 @@ int main(void)
             renderScene(prog, mesh, cubeMesh, degree);
             {
                 prog2["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) *
-                              glm::lookAt(glm::vec3{0, 0, 10}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
+                              glm::lookAt(glm::vec3{0, 0, 10}, glm::vec3{0, 0, 10}, glm::vec3{0, 1, 0});
                 prog2["model"] = glm::translate(glm::mat4(1.0f), light_pos) * glm::scale(glm::mat4(1.0f), glm::vec3{0.2f});
 
                 prog2.use();
                 //mesh.draw();
             }
 
+            // collision detection (needs bounding box detection too)
+            for (int i = 0; i < wallPlanes.size(); i++) {
+                if (WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.05) {
+                    std::cout << "Collided with wall." << std::endl;
+                }
+            }
+
+            
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();

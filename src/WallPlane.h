@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include "StaticMesh.h"
+#include "Maze.h"
 
 #define MAZE_ROW 17
 #define MAZE_COL 14
@@ -20,7 +21,8 @@ class WallPlane {
         void printWallVertices();
         void printWallNormals();
 
-        static std::vector<WallPlane> storeWallPlanes(int maze[MAZE_ROW][MAZE_COL], StaticMesh &cubeMesh);
+        static std::vector<WallPlane> storeWallPlanes(Maze *maze, StaticMesh &cubeMesh);
+        static GLfloat distToWallPlane(glm::vec3 const &point, WallPlane const &wallplane);
 };
 
 

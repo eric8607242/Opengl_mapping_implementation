@@ -13,18 +13,26 @@ void Maze::init(int maze_map[MAZE_ROW][MAZE_COL]) {
 
             if (i - 1 < 0 || map[i-1][j] == 1) {
                 BLOCKED[i][j].negX = true;
+            } else {
+                BLOCKED[i][j].negX = false;
             }
 
             if (i + 1 > MAZE_ROW - 1 || map[i+1][j] == 1) {
                 BLOCKED[i][j].posX = true;
+            } else {
+                BLOCKED[i][j].posX = false;
             }
 
             if (j - 1 < 0 || map[i][j-1] == 1) {
                 BLOCKED[i][j].negZ = true;
+            } else {
+                BLOCKED[i][j].negZ = false;
             }
 
             if (j + 1 > MAZE_COL - 1 || map[i][j+1] == 1) {
                 BLOCKED[i][j].posZ = true;
+            } else {
+                BLOCKED[i][j].posZ = false;
             }
         }
     }
