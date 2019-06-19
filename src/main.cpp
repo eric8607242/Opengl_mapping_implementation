@@ -87,8 +87,8 @@ int main(void)
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     auto text = Texture2D::LoadFromFile("../resource/image.png");
-    auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj");
-    auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj");
+    auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj", false);
+    auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj", true);
 
     auto prog = Program::LoadFromFile(
         "../resource/vs.vert",
@@ -149,9 +149,13 @@ int main(void)
         {1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1},
         {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1}
-
     };
 
+    int test_map[MAZE_ROW][MAZE_COL] = {
+        {1, 1, 1},
+        {1, 0, 1},
+        {1, 0, 1}
+    };
 
     {
         // text and mesh, shader => garbage collector
@@ -177,7 +181,7 @@ int main(void)
 
         // store horizontal wall planes (not including blocked ones)
         wallPlanes = WallPlane::storeWallPlanes(maze, cubeMesh);
-
+        
 
         float degree = 0.0f;
         glm::vec3 object_color{1.0f};
@@ -256,7 +260,10 @@ int main(void)
                 //mesh.draw();
             }
 
+
             GLfloat xMin, xMax, zMin, zMax;
+            bool inXRange;
+            bool inZRange;
             // collision detection
             for (int i = 0; i < wallPlanes.size(); i++) {
                 xMin = wallPlanes[i].wall_vertices[0];
@@ -272,18 +279,18 @@ int main(void)
                     std::swap(zMin, zMax);
                 }
                 
-                bool inXRange = (zMin == zMax) && (camera.Position.x >= xMin && camera.Position.x <= xMax);
-                bool inZRange = (xMin == xMax) && (camera.Position.z >= zMin && camera.Position.z <= zMax);
+                inXRange = (zMin == zMax) && (camera.Position.x > xMin && camera.Position.x < xMax);
+                inZRange = (xMin == xMax) && (camera.Position.z > zMin && camera.Position.z < zMax);
+
+                                
+                if ((inXRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1) ||
+                    (inZRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1)) {
                 
-                if (WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.2) {
-                    // also inside wall plane X or Z min/max bound ??
-                    if (inXRange || inZRange) {
-                        std::cout << "Collided. " << i << std::endl;
-                    }
+                    std::cout << "Collided. " << i << std::endl;
                 }
             }
 
-            
+                    
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
