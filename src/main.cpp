@@ -26,6 +26,7 @@ const unsigned int SCR_HEIGHT = 768;
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void processInput(GLFWwindow *window);
 void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree);
+bool inRange(GLfloat low, GLfloat high, GLfloat x);
 static void error_callback(int error, const char *description)
 {
     std::cerr << fmt::format("Error: {0}\n", description);
@@ -176,11 +177,13 @@ int main(void)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
+
+        GLfloat playerRadius = 0.1f;
         // maze initialize
         maze -> init(map);
 
         // store horizontal wall planes (not including blocked ones)
-        wallPlanes = WallPlane::storeWallPlanes(maze, cubeMesh);
+        // wallPlanes = WallPlane::storeWallPlanes(maze, cubeMesh);
         
 
         float degree = 0.0f;
@@ -197,6 +200,9 @@ int main(void)
 
         while (!glfwWindowShouldClose(window))
         {
+
+            glm::vec3 prevCamPos = camera.Position;
+            
             glm::vec3 light_pos = camera.Position;
             glm::vec3 light_center = camera.Position + camera.Front;
 
@@ -261,34 +267,52 @@ int main(void)
             }
 
 
-            GLfloat xMin, xMax, zMin, zMax;
-            bool inXRange;
-            bool inZRange;
-            // collision detection
-            for (int i = 0; i < wallPlanes.size(); i++) {
-                xMin = wallPlanes[i].wall_vertices[0];
-                xMax = wallPlanes[i].wall_vertices[3];
-                zMin = wallPlanes[i].wall_vertices[2];
-                zMax = wallPlanes[i].wall_vertices[5];
+            // GLfloat xMin, xMax, zMin, zMax;
+            // bool inXRange;
+            // bool inZRange;
+            // // collision detection
+            // for (int i = 0; i < wallPlanes.size(); i++) {
+            //     xMin = wallPlanes[i].wall_vertices[0];
+            //     xMax = wallPlanes[i].wall_vertices[3];
+            //     zMin = wallPlanes[i].wall_vertices[2];
+            //     zMax = wallPlanes[i].wall_vertices[5];
                 
-                if (xMin > xMax) {
-                    std::swap(xMin, xMax);
-                }
+            //     if (xMin > xMax) {
+            //         std::swap(xMin, xMax);
+            //     }
 
-                if (zMin > zMax) {
-                    std::swap(zMin, zMax);
-                }
+            //     if (zMin > zMax) {
+            //         std::swap(zMin, zMax);
+            //     }
                 
-                inXRange = (zMin == zMax) && (camera.Position.x > xMin && camera.Position.x < xMax);
-                inZRange = (xMin == xMax) && (camera.Position.z > zMin && camera.Position.z < zMax);
+            //     inXRange = (zMin == zMax) && (camera.Position.x > xMin && camera.Position.x < xMax);
+            //     inZRange = (xMin == xMax) && (camera.Position.z > zMin && camera.Position.z < zMax);
 
                                 
-                if ((inXRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1) ||
-                    (inZRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1)) {
+            //     if ((inXRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1) ||
+            //         (inZRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1)) {
                 
-                    std::cout << "Collided. " << i << std::endl;
+            //         std::cout << "Collided. " << i << std::endl;
+            //     }
+            // }
+
+
+            // collision detection w/ bbox checking  
+            GLfloat xLow, xHigh, zLow, zHigh;
+            for (int i = 0; i < MAZE_ROW; i++) {
+                for (int j = 0; j < MAZE_COL; j++) {
+                    xLow = (-0.5 + i) - playerRadius;
+                    xHigh = (0.5 + i) + playerRadius;
+                    zLow = (-0.5 + j) - playerRadius;
+                    zHigh = (0.5 + j) + playerRadius;
+
+                    if (inRange(xLow, xHigh, camera.Position.x) && inRange(zLow, zHigh, camera.Position.z) && maze -> map[i][j] == 1) {
+                        std::cout << "wall." << i << " " << j << std::endl;
+                        camera.Position = prevCamPos;
+                    }
                 }
             }
+            
 
                     
             // Start the Dear ImGui frame
@@ -368,4 +392,9 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
+
+// Returns true if x is in range [low..high], else false 
+bool inRange(GLfloat low, GLfloat high, GLfloat x) { 
+    return ((x-high) * (x-low) <= 0);
+} 
 
