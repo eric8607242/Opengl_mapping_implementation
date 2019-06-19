@@ -27,24 +27,46 @@ std::vector<WallPlane> WallPlane::storeWallPlanes(Maze *maze, StaticMesh &cubeMe
     std::vector<GLfloat> normals;
     std::vector<WallPlane> wallPlanes;
 
-    // wall plane definition: every 4 vertices defines a wallPlane
+    // wall plane definition: every 6 vertices defines a wallPlane
 
-    for (int i = 0; i < cubeMesh.smooth_n.size(); i += 12) {
+    // iterate through 6 faces
+    for (int i = 0; i < cubeMesh.normals_flat.size(); i+=18) {
 
-        
-        if (cubeMesh.smooth_n[i] > 0) { // normal x vector > 0 (horizontal +X)
+        if (cubeMesh.normals_flat[i] == 1) { // normal x vector > 0
             // check blockage
             for (int m_i = 0; m_i < MAZE_ROW; m_i++) {
                 for (int m_j = 0; m_j < MAZE_COL; m_j++) {
-                    if (maze -> BLOCKED[m_i][m_j].posX == false) {
-                        for (int k = 0; k < 12; k+=3) {
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k] + m_i);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+1] + 0.5f);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+2] + m_j);
+                    if (!maze -> BLOCKED[m_i][m_j].posX) {
+                        for (int k = 0; k < 18; k+=3) {
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k] + m_i);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+1] + 0.5f);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+2] + m_j);
                             
-                            normals.push_back(cubeMesh.smooth_n[i+k]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+1]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+2]);
+                            normals.push_back(cubeMesh.normals_flat[i+k]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+1]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+2]);
+                        }
+
+                        // store to wallPlanes
+                        wallPlanes.push_back(WallPlane(translatedPos, normals));
+                        translatedPos.clear();
+                        normals.clear();
+                    }
+                }
+            }
+        } else if (cubeMesh.normals_flat[i] == -1) { // normal x vector < 0
+            // check blockage
+            for (int m_i = 0; m_i < MAZE_ROW; m_i++) {
+                for (int m_j = 0; m_j < MAZE_COL; m_j++) {
+                    if (!maze -> BLOCKED[m_i][m_j].negX) {
+                        for (int k = 0; k < 18; k+=3) {
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k] + m_i);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+1] + 0.5f);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+2] + m_j);
+                            
+                            normals.push_back(cubeMesh.normals_flat[i+k]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+1]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+2]);
                         }
                         // store to wallPlanes
                         wallPlanes.push_back(WallPlane(translatedPos, normals));
@@ -53,20 +75,21 @@ std::vector<WallPlane> WallPlane::storeWallPlanes(Maze *maze, StaticMesh &cubeMe
                     }
                 }
             }
-        } else if (cubeMesh.smooth_n[i] < 0) { // normal x vector < 0 (horizontal -X)
+        } else if (cubeMesh.normals_flat[i+2] == 1) { // normal z vector > 0
             // check blockage
             for (int m_i = 0; m_i < MAZE_ROW; m_i++) {
                 for (int m_j = 0; m_j < MAZE_COL; m_j++) {
-                    if (maze -> BLOCKED[m_i][m_j].negX == false) {
-                        for (int k = 0; k < 12; k+=3) {
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k] + m_i);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+1] + 0.5f);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+2] + m_j);
+                    if (!maze -> BLOCKED[m_i][m_j].posZ) {
+                        for (int k = 0; k < 18; k+=3) {
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k] + m_i);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+1] + 0.5f);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+2] + m_j);
                             
-                            normals.push_back(cubeMesh.smooth_n[i+k]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+1]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+2]);
+                            normals.push_back(cubeMesh.normals_flat[i+k]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+1]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+2]);
                         }
+
                         // store to wallPlanes
                         wallPlanes.push_back(WallPlane(translatedPos, normals));
                         translatedPos.clear();
@@ -74,41 +97,21 @@ std::vector<WallPlane> WallPlane::storeWallPlanes(Maze *maze, StaticMesh &cubeMe
                     }
                 }
             }
-        } else if (cubeMesh.smooth_n[i+2] > 0) { // normal z vector > 0 (horizontal +Z)
+        } else if (cubeMesh.normals_flat[i+2] == -1) { // normal z vector < 0
             // check blockage
             for (int m_i = 0; m_i < MAZE_ROW; m_i++) {
                 for (int m_j = 0; m_j < MAZE_COL; m_j++) {
-                    if (maze -> BLOCKED[m_i][m_j].posZ == false) {
-                        for (int k = 0; k < 12; k+=3) {
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k] + m_i);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+1] + 0.5f);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+2] + m_j);
+                    if (!maze -> BLOCKED[m_i][m_j].negZ) {
+                        for (int k = 0; k < 18; k+=3) {
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k] + m_i);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+1] + 0.5f);
+                            translatedPos.push_back(cubeMesh.positions_flat[i+k+2] + m_j);
                             
-                            normals.push_back(cubeMesh.smooth_n[i+k]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+1]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+2]);
+                            normals.push_back(cubeMesh.normals_flat[i+k]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+1]);
+                            normals.push_back(cubeMesh.normals_flat[i+k+2]);
                         }
-                        // store to wallPlanes
-                        wallPlanes.push_back(WallPlane(translatedPos, normals));
-                        translatedPos.clear();
-                        normals.clear();
-                    }
-                }
-            }
-        } else if (cubeMesh.smooth_n[i+2] < 0) { // normal z vector < 0 (horizontal -Z)
-            // check blockage
-            for (int m_i = 0; m_i < MAZE_ROW; m_i++) {
-                for (int m_j = 0; m_j < MAZE_COL; m_j++) {
-                    if (maze -> BLOCKED[m_i][m_j].negZ == false) {
-                        for (int k = 0; k < 12; k+=3) {
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k] + m_i);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+1] + 0.5f);
-                            translatedPos.push_back(cubeMesh.smooth_position[i+k+2] + m_j);
-                            
-                            normals.push_back(cubeMesh.smooth_n[i+k]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+1]);
-                            normals.push_back(cubeMesh.smooth_n[i+k+2]);
-                        }
+
                         // store to wallPlanes
                         wallPlanes.push_back(WallPlane(translatedPos, normals));
                         translatedPos.clear();
@@ -128,5 +131,5 @@ GLfloat WallPlane::distToWallPlane(glm::vec3 const &point, WallPlane const &wall
     glm::vec3 N = glm::vec3(wallplane.wall_normals[0], wallplane.wall_normals[0], wallplane.wall_normals[2]);
     
 
-    return glm::abs((GLfloat)glm::dot(vecPlaneToPt, N));
+    return glm::abs(glm::dot(vecPlaneToPt, N));
 }

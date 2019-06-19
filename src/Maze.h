@@ -12,10 +12,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 struct blockage {
-    bool posX;
-    bool negX;
-    bool posZ;
-    bool negZ;
+    bool posX = false;
+    bool negX = false;
+    bool posZ = false;
+    bool negZ = false;
 };
 
 class Maze {
@@ -24,6 +24,7 @@ class Maze {
         Maze();
         void init(int maze_map[MAZE_ROW][MAZE_COL]);
         void drawMaze(Program &shader, StaticMesh &cubeMesh);
+        void printBlockage(int i, int j);
 
 
         int map[MAZE_ROW][MAZE_COL];
