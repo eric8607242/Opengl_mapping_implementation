@@ -2,17 +2,18 @@
 layout(location=0) out vec4 color;
 
 uniform sampler2D text;
-uniform sampler2D shadowMap;
-uniform float specular_s;
-uniform float ambient_s;
+uniform sampler2D flashshadowMap;
+uniform sampler2D lampshadowMap;
 uniform vec3 object_color; 
 uniform vec3 light_pos; 
+uniform vec3 lamp_pos; 
+
 uniform vec3 eye_pos;
 uniform mat4 vp;
 uniform float cutoff;
 uniform vec3 light_center;
 
-float ShadowCalculation(vec4 fragposlightspace, float bias)
+float ShadowCalculation(vec4 fragposlightspace, float bias, sampler2D shadowMap)
 {
     vec3 projcoords = fragposlightspace.xyz / fragposlightspace.w;
     projcoords = projcoords * 0.5 + 0.5;
@@ -34,9 +35,16 @@ float ShadowCalculation(vec4 fragposlightspace, float bias)
     {
         shadow = 0.0;
     }
-
-
     return shadow;
+}
+
+vec3 LightCalculation(vec3 norm, vec3 light_dir)
+{
+    vec3 light_color = vec3(1.0f, 1.0f, 1.0f);    
+    float diff = max(dot(norm, light_dir), 0.0);
+    vec3 diffuse = diff * light_color;
+
+    return diffuse;
 }
 
 in vec3 g_color;
@@ -44,40 +52,46 @@ in vec2 g_uv;
 in vec3 g_normal;
 in vec3 g_fragpos;
 in vec4 g_fragposlightspace;
+in vec4 g_fragposlamplightspace;
 
 void main()
 {
-    
     vec3 norm = normalize(g_normal);
     vec3 light_color = vec3(1.0f, 1.0f, 1.0f);    
-
-    vec3 ambient = ambient_s * light_color;
-
     vec3 light_dir = normalize(light_pos - g_fragpos);
+    vec3 lamp_dir = normalize(lamp_pos - g_fragpos);
     vec3 light_center_dir = normalize(light_pos - light_center);
-    
-    //spot light effect
+
+    vec3 ambient = 0.2 * light_color;
+
+    vec3 flashlight = LightCalculation(norm, light_dir);
+    vec3 lamplight = LightCalculation(norm, lamp_dir);
+
+    vec3 light_diff = flashlight;
+
     float theta = dot(light_dir, normalize(light_center_dir));
+    float lamp_theta = dot(lamp_dir, normalize(lamp_pos - vec3(0.0f, 0.0f, 0.0f)));
 
-    float diff = max(dot(norm, light_dir), 0.0);
-    vec3 diffuse = diff * light_color;
 
-    vec3 view_dir = normalize(eye_pos-g_fragpos);
+    float flashshadow;
+    float lampshadow;
 
-    vec3 reflect_dir = -reflect(light_dir, norm);
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
-    vec3 specular = specular_s * spec * light_color;
+    float bias = max(0.05 * (1.0 - dot(norm, light_dir)), 0.005);
+    lampshadow = ShadowCalculation(g_fragposlamplightspace, bias, lampshadowMap);
 
     float shadow;
-
     //spot light effect
-    if(theta > cutoff){
-        float bias = max(0.05 * (1.0 - dot(norm, light_dir)), 0.005);
-        shadow = ShadowCalculation(g_fragposlightspace, bias);
+    if(theta > cutoff ){
+        flashshadow = ShadowCalculation(g_fragposlightspace, bias, flashshadowMap);
+        shadow = flashshadow;
     }else{
-        shadow = 1.0f;
+        //if(lamp_theta > cutoff){
+        //    shadow = lampshadow;
+        //}else{
+            shadow = 1.0f;
+        //}
     }
 
-        vec3 result = (ambient+ (1.0 - shadow) * (diffuse+specular)) * object_color; 
-        color = vec4(result, 1.0);
+    vec3 result = (ambient+ (1.0 - shadow) * light_diff) * object_color; 
+    color = vec4(result, 1.0);
 }

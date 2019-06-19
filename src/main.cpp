@@ -102,7 +102,9 @@ int main(void)
         "../resource/depth.vert",
         "../resource/depth.frag");
     auto shadow = ShadowMap::LoadDepth(shadow_width, shadow_height);
+    auto lamp_shadow = ShadowMap::LoadDepth(shadow_width, shadow_height);
     shadow.attach();
+    lamp_shadow.attach();
 
     float planeVertices[] = {
         25.0f, 25.0f, -1.5f, 25.0f, 0.0f, 0.0f, 0.0f, 1.0f,
@@ -182,19 +184,21 @@ int main(void)
         float degree = 0.0f;
         glm::vec3 object_color{1.0f};
 
-        float specular_s = 0.0f;
-        float ambient_s = 0.0f;
 
         prog.use();
         prog["text"] = 0;
-        prog["shadowMap"] = 1;
+        prog["flashshadowMap"] = 1;
+        prog["lampshadowMap"] = 2;
 
         glEnable(GL_DEPTH_TEST);
 
         while (!glfwWindowShouldClose(window))
         {
-            glm::vec3 light_pos = camera.Position;
+            glm::vec3 light_pos = camera.Position + camera.light_offset;
             glm::vec3 light_center = camera.Position + camera.Front;
+
+            glm::vec3 lamp_pos = glm::vec3(-10.0f, 10.0f, 0.0f);
+            glm::vec3 lamp_center = glm::vec3(7.0f, 0.0f, 8.5f);
 
             float currentFrame = glfwGetTime();
             deltaTime = currentFrame - lastFrame;
@@ -208,22 +212,39 @@ int main(void)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // 1. render depth of scene to texture
-            float near_plane = 0.1f, far_plane = 10.0f;
+            float near_plane = 0.1f, far_plane = 1000.0f;
 
             glm::mat4 lightprojection, lightview;
             glm::mat4 lightspacematrix;
-            //lightprojection = glm::ortho(-5.0f, 5.0f, -3.0f, 3.0f, near_plane, far_plane);
-            lightprojection = glm::perspective(90.0f / 180.0f * 3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
-            //lightview = glm::lookAt(light_pos, camera.Front, glm::vec3(0.0, 1.0, 0.0));
-            lightview = camera.GetViewMatrix();
+
+            lightprojection = glm::perspective(40.0f / 180.0f * 3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
+            lightview = camera.GetLightMatrix();
             lightspacematrix = lightprojection * lightview;
             depthshader.use();
             depthshader["lightspacematrix"] = lightspacematrix;
 
             shadow.generate();
+            glCullFace(GL_FRONT);
             renderScene(depthshader, mesh, cubeMesh, degree);
+            glCullFace(GL_BACK);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+            ///////////////////////////////////////////
+
+            glm::mat4 lamplightspacematrix;
+
+            lightview = glm::lookAt(lamp_pos, lamp_center, glm::vec3(0.0, 1.0, 0.0));
+            lamplightspacematrix = lightprojection * lightview;
+            depthshader.use();
+            depthshader["lightspacematrix"] = lamplightspacematrix;
+
+            lamp_shadow.generate();
+            glCullFace(GL_FRONT);
+            renderScene(depthshader, mesh, cubeMesh, degree);
+            glCullFace(GL_BACK);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            ///////////////////////////////////////////
             int display_w, display_h;
             glfwGetFramebufferSize(window, &display_w, &display_h);
             glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -234,18 +255,19 @@ int main(void)
 
             prog.use();
             prog["lightspacematrix"] = lightspacematrix;
-            prog["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) * camera.GetViewMatrix();
+            prog["lamplightspacematrix"] = lamplightspacematrix;
+            prog["vp"] = glm::perspective(30 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) * camera.GetViewMatrix();
             prog["object_color"] = object_color;
 
             prog["light_pos"] = light_pos;
-            prog["eye_pos"] = glm::vec3{0, 0, 10}; // set to the entrance of maze
-            prog["specular_s"] = specular_s;
-            prog["ambient_s"] = ambient_s;
-            prog["cutoff"] = glm::cos(glm::radians(15.0f));
+            prog["lamp_pos"] = lamp_pos;
+            prog["eye_pos"] = camera.Position; // set to the entrance of maze
+            prog["cutoff"] = glm::cos(glm::radians(20.0f));
             prog["light_center"] = light_center;
 
             text.bindToChannel(0);
             shadow.bindToChannel(1);
+            lamp_shadow.bindToChannel(2);
             renderScene(prog, mesh, cubeMesh, degree);
             {
                 prog2["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) *
@@ -294,8 +316,6 @@ int main(void)
                 ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
 
                 ImGui::SliderFloat("degree", &degree, 0.0f, 360.0f); // Edit 1 float using a slider from 0.0f to 1.0f
-                ImGui::SliderFloat("Specular", &specular_s, 0, 1);
-                ImGui::SliderFloat("Ambient", &ambient_s, 0, 1);
                 ImGui::ColorEdit3("clear color", (float *)&clear_color);         // Edit 3 floats representing a color
                 ImGui::ColorEdit3("object color", glm::value_ptr(object_color)); // Edit 3 floats representing a color
                 ImGui::SliderFloat2("Position", glm::value_ptr(light_center), -10, 10);
@@ -306,7 +326,7 @@ int main(void)
 
             // Rendering
             ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            //ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(window);
         }

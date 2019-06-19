@@ -7,12 +7,14 @@ in vec3 v_color[];
 in vec3 v_normal[];
 in vec3 v_fragpos[];
 in vec4 v_fragposlightspace[];
+in vec4 v_fragposlamplightspace[];
 
 out vec2 g_uv;
 out vec3 g_color;
 out vec3 g_normal;
 out vec3 g_fragpos;
 out vec4 g_fragposlightspace;
+out vec4 g_fragposlamplightspace;
 
 void main() {
     gl_Position = gl_in[0].gl_Position;
@@ -21,6 +23,7 @@ void main() {
     g_normal = v_normal[0];
     g_fragpos = v_fragpos[0];
     g_fragposlightspace = v_fragposlightspace[0];
+    g_fragposlamplightspace = v_fragposlamplightspace[0];
     EmitVertex();
 
     gl_Position = gl_in[1].gl_Position;
@@ -29,6 +32,7 @@ void main() {
     g_normal = v_normal[1];
     g_fragpos = v_fragpos[1];
     g_fragposlightspace = v_fragposlightspace[1];
+    g_fragposlamplightspace = v_fragposlamplightspace[1];
     EmitVertex();
     
     gl_Position = gl_in[2].gl_Position;
@@ -37,7 +41,8 @@ void main() {
     g_normal = v_normal[2];
     g_fragpos = v_fragpos[2];
     g_fragposlightspace = v_fragposlightspace[2];
-   EmitVertex();
+    g_fragposlamplightspace = v_fragposlamplightspace[2];
+    EmitVertex();
 
     EndPrimitive();
 }  

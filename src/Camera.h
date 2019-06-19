@@ -27,6 +27,8 @@ class Camera {
         glm::vec3 Right;
         glm::vec3 WorldUp;
 
+        glm::vec3 light_offset = glm::vec3(0.02f, -0.02f, 0.0f);
+
         float Yaw;
         float Pitch;
 
@@ -51,6 +53,7 @@ class Camera {
         }
         
         glm::mat4 GetViewMatrix();
+        glm::mat4 GetLightMatrix();
         void ProcessKeyboard(Camera_Movement direction, float deltaTime);
         void ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
 
