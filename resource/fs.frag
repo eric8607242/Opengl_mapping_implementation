@@ -65,7 +65,7 @@ void main()
     vec3 lamp_dir = normalize(lamp_pos - g_fragpos);
     vec3 light_center_dir = normalize(light_pos - light_center);
 
-    vec3 ambient = 0.2 * light_color;
+    vec3 ambient = 0.0 * light_color;
 
     vec3 flashlight = LightCalculation(norm, light_dir);
     vec3 lamplight = LightCalculation(norm, lamp_dir);
