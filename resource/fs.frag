@@ -22,7 +22,7 @@ float ShadowCalculation(vec4 fragposlightspace, float bias, sampler2D shadowMap)
     float closestDepth = texture(shadowMap, projcoords.xy).r;
     float currentDepth = projcoords.z;
 
-    /*float shadow = 0.0;
+    float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     for(int x = -1; x <= 1; ++x){
         for(int y = -1; y <= 1; ++y){
@@ -35,9 +35,9 @@ float ShadowCalculation(vec4 fragposlightspace, float bias, sampler2D shadowMap)
     if(projcoords.z > 1.0)
     {
         shadow = 0.0;
-    }*/
-    bias = 0.0005;
-    float shadow = currentDepth-bias > closestDepth  ? 1.0 : 0.0; 
+    }
+    //bias = 0.0005;
+    //float shadow = currentDepth-bias > closestDepth  ? 1.0 : 0.0; 
     return shadow;
 }
 
@@ -76,8 +76,9 @@ void main()
     float flashshadow;
     float lampshadow;
 
-    float bias = max(0.005 * (1.0 - dot(norm, light_dir)), 0.0005);
+    float bias = max(0.0001 * (1.0 - dot(norm, lamp_dir)), 0.0001);
     lampshadow = ShadowCalculation(g_fragposlamplightspace, bias, lampshadowMap);
+    bias = max(0.05 * (1.0 - dot(norm, light_dir)), 0.005);
     flashshadow = ShadowCalculation(g_fragposlightspace, bias, flashshadowMap);
 
     float shadow;

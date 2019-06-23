@@ -21,6 +21,7 @@ const unsigned int SCR_WIDTH = 1024;
 const unsigned int SCR_HEIGHT = 768;
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void cursor_callback(GLFWwindow *window);
 void processInput(GLFWwindow *window);
 void renderScene(Program &shader, StaticMesh &floor, StaticMesh &mesh, StaticMesh &cubeMesh);
 bool inRange(GLfloat low, GLfloat high, GLfloat x);
@@ -31,7 +32,6 @@ static void error_callback(int error, const char *description)
 
 Camera camera(glm::vec3(0.0f, 1.0f, 7.0f));
 
-// maze object
 Maze *maze;
 
 float lastX = SCR_WIDTH / 2.0f;
@@ -45,6 +45,7 @@ glm::vec3 lamp_pos = glm::vec3(0.0f, 5.0f, 0.0f);
 glm::vec3 lamp_center = glm::vec3(7.0f, 0.0f, 8.5f);
 
 float near_plane = 0.1f, far_plane = 100.0f;
+int alt_flag = 0;
 
 int main(void)
 {
@@ -167,6 +168,8 @@ int main(void)
 
         while (!glfwWindowShouldClose(window))
         {
+            cursor_callback(window);
+
             glm::vec3 prevCamPos = camera.Position;
 
             glm::vec3 light_pos = camera.Position + camera.light_offset;
@@ -192,9 +195,7 @@ int main(void)
             depthshader["lightspacematrix"] = lightspacematrix;
 
             shadow.generate();
-            glCullFace(GL_FRONT);
             renderScene(depthshader, FloorMesh, mesh, cubeMesh);
-            glCullFace(GL_BACK);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
@@ -205,9 +206,7 @@ int main(void)
             depthshader["lightspacematrix"] = lamplightspacematrix;
 
             lamp_shadow.generate();
-            glCullFace(GL_FRONT);
             renderScene(depthshader, FloorMesh, mesh, cubeMesh);
-            glCullFace(GL_BACK);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             int display_w, display_h;
@@ -262,18 +261,13 @@ int main(void)
             // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
             {
                 ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
-
-                ImGui::ColorEdit3("clear color", (float *)&clear_color);         // Edit 3 floats representing a color
-                //ImGui::ColorEdit3("object color", glm::value_ptr(object_color)); // Edit 3 floats representing a color
-                //ImGui::SliderFloat2("Position", glm::value_ptr(light_center), -10, 10);
-
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
                 ImGui::End();
             }
 
             // Rendering
             ImGui::Render();
-            //ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(window);
         }
@@ -288,9 +282,6 @@ void renderScene(Program &shader, StaticMesh &floor, StaticMesh &mesh, StaticMes
     // draw plane
     shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3{10.0f}) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
     floor.draw(false);
-
-    //shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f))*glm::rotate(glm::mat4(1.0f),3.1415926f/180.0f, glm::vec3(0, 1, 0));
-    //mesh.draw(false);
 
     // draw maze
     maze -> drawMaze(shader, cubeMesh);
@@ -328,6 +319,22 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
     lastY = ypos;
 
     camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+void cursor_callback(GLFWwindow *window)
+{
+    if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS){
+        if(alt_flag == 0){
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            glfwSetCursorPosCallback(window, NULL);
+            alt_flag = 1;
+        }
+        else{
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            glfwSetCursorPosCallback(window, mouse_callback);
+            alt_flag = 0;
+        }
+    }
 }
 
 // Returns true if x is in range [low..high], else false 
