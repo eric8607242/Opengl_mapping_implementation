@@ -4,7 +4,10 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdlib>
-#define GLM_FORCE_RADIAN #include <glm/glm.hpp> #include <glm/gtc/matrix_transform.hpp> #include <glm/gtc/type_ptr.hpp>
+#define GLM_FORCE_RADIAN 
+#include <glm/glm.hpp> 
+#include <glm/gtc/matrix_transform.hpp> 
+#include <glm/gtc/type_ptr.hpp>
 #include <fmt/format.h>
 #include <imgui.h>
 #include <memory>
@@ -47,6 +50,9 @@ glm::vec3 lamp_center = glm::vec3(7.0f, 0.0f, 8.5f);
 float near_plane = 0.1f, far_plane = 100.0f;
 int alt_flag = 0;
 
+bool normal_use = false;
+bool parallax_use = false;
+
 int main(void)
 {
     GLFWwindow *window;
@@ -85,7 +91,9 @@ int main(void)
     ImGui::StyleColorsDark();
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    auto text = Texture2D::LoadFromFile("../resource/sun.png");
+    auto text = Texture2D::LoadFromFile("../resource/wall.png");
+    auto textNormal = Texture2D::LoadFromFile("../resource/wall_NRM.png");
+    auto textDisp = Texture2D::LoadFromFile("../resource/wall_DISP.png");
     auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj", false);
     auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj", false);
     auto FloorMesh = StaticMesh::LoadMesh("../resource/floor.obj", false);
@@ -160,6 +168,8 @@ int main(void)
         prog["text"] = 0;
         prog["flashshadowMap"] = 1;
         prog["lampshadowMap"] = 2;
+        prog["text_normal"] = 3;
+        prog["text_disp"] = 4;
 
         glEnable(GL_DEPTH_TEST);
 
@@ -230,9 +240,16 @@ int main(void)
             prog["cutoff"] = glm::cos(glm::radians(15.0f));
             prog["light_center"] = light_center;
 
+
+            prog["normal_use"] = static_cast<int>(normal_use);
+		    prog["parallax_use"] = static_cast<int>(parallax_use);
+
+
             text.bindToChannel(0); 
             shadow.bindToChannel(1);
             lamp_shadow.bindToChannel(2);
+            textNormal.bindToChannel(3);
+            textDisp.bindToChannel(4);
 
             renderScene(prog, FloorMesh, mesh, cubeMesh);
 
@@ -267,6 +284,10 @@ int main(void)
             {
                 ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+                
+                
+                ImGui::Checkbox("normal mapping", &normal_use);
+                ImGui::Checkbox("parallax mapping", &parallax_use);
                 ImGui::End();
             }
  
@@ -274,6 +295,7 @@ int main(void)
             // Rendering
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 
             glfwSwapBuffers(window);
         }
@@ -285,14 +307,14 @@ int main(void)
 
 void renderScene(Program &shader, StaticMesh &floor, StaticMesh &mesh, StaticMesh &cubeMesh)
 {
+    // draw maze
+    maze -> drawMaze(shader, cubeMesh); 
+
     // draw plane
     shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3{10.0f}) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
+    shader["normal_use"] = 0;
+    shader["parallax_use"] = 0;
     floor.draw(false);
-
-    // draw maze
-    // maze -> drawMaze(shader, cubeMesh); 
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    cubeMesh.draw(false);
 }
 
 void processInput(GLFWwindow *window)

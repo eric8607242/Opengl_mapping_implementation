@@ -51,8 +51,8 @@ void Maze::drawMaze(Program &shader, StaticMesh &cubeMesh) {
     for (int i = 0; i < MAZE_ROW; i++) {
         for (int j = 0; j < MAZE_COL; j++) {
             if (map[i][j] == 1) {
-                shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(i, 0.0f, j));
-                cubeMesh.draw(true);              
+                shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(i, 0.5f, j));
+                cubeMesh.draw(false);              
             }
         }
     }

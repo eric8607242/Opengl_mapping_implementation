@@ -24,7 +24,7 @@ public:
 
     StaticMesh();
     GLuint vao;
-    GLuint vbo[3];
+    GLuint vbo[5];
     GLuint ibo;
     GLuint numIndices;
 
