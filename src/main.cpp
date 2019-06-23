@@ -4,10 +4,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdlib>
-#define GLM_FORCE_RADIAN
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#define GLM_FORCE_RADIAN #include <glm/glm.hpp> #include <glm/gtc/matrix_transform.hpp> #include <glm/gtc/type_ptr.hpp>
 #include <fmt/format.h>
 #include <imgui.h>
 #include <memory>
@@ -25,7 +22,7 @@ const unsigned int SCR_HEIGHT = 768;
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void processInput(GLFWwindow *window);
-void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree);
+void renderScene(Program &shader, StaticMesh &floor, StaticMesh &mesh, StaticMesh &cubeMesh);
 bool inRange(GLfloat low, GLfloat high, GLfloat x);
 static void error_callback(int error, const char *description)
 {
@@ -33,9 +30,6 @@ static void error_callback(int error, const char *description)
 }
 
 Camera camera(glm::vec3(0.0f, 1.0f, 7.0f));
-
-// define wall face objects
-std::vector<WallPlane> wallPlanes;
 
 // maze object
 Maze *maze;
@@ -46,6 +40,11 @@ bool firstMouse = true;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+glm::vec3 lamp_pos = glm::vec3(0.0f, 5.0f, 0.0f);
+glm::vec3 lamp_center = glm::vec3(7.0f, 0.0f, 8.5f);
+
+float near_plane = 0.1f, far_plane = 100.0f;
 
 int main(void)
 {
@@ -77,8 +76,6 @@ int main(void)
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     (void)io;
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
@@ -87,18 +84,16 @@ int main(void)
     ImGui::StyleColorsDark();
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    auto text = Texture2D::LoadFromFile("../resource/image.png");
+    auto text = Texture2D::LoadFromFile("../resource/sun.png");
     auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj", false);
-    auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj", true);
+    auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj", false);
+    auto FloorMesh = StaticMesh::LoadMesh("../resource/floor.obj", false);
 
     auto prog = Program::LoadFromFile(
         "../resource/vs.vert",
         "../resource/gs.geom",
         "../resource/fs.frag");
-    auto prog2 = Program::LoadFromFile(
-        "../resource/vs.vert",
-        "../resource/gs.geom",
-        "../resource/fs_light.frag");
+
     auto depthshader = Program::LoadFromFile(
         "../resource/depth.vert",
         "../resource/depth.frag");
@@ -107,31 +102,6 @@ int main(void)
     shadow.attach();
     lamp_shadow.attach();
 
-    float planeVertices[] = {
-        25.0f, 25.0f, -1.5f, 25.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        -25.0f, 25.0f, -1.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        -25.0f, -25.0f, -1.5f, 0.0f, 25.0f, 0.0f, 0.0f, 1.0f,
-
-        25.0f, 25.0f, -1.5f, 25.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        -25.0f, -25.0f, -1.5f, 0.0f, 25.0f, 0.0f, 0.0f, 1.0f,
-        25.0f, -25.0f, -1.5f, 25.0f, 25.0f, 0.0f, 0.0f, 1.0f};
-
-    
-
-    // plane vertex buffer configuration
-    unsigned int planeVBO;
-    glGenVertexArrays(1, &planeVAO);
-    glGenBuffers(1, &planeVBO);
-    glBindVertexArray(planeVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(5 * sizeof(float)));
-    glBindVertexArray(0);
 
     maze = new Maze();
     int map[MAZE_ROW][MAZE_COL] = {
@@ -160,6 +130,7 @@ int main(void)
         auto g2 = Protect(mesh);
         auto g3 = Protect(prog);
         auto g4 = Protect(cubeMesh);
+        auto g5 = Protect(FloorMesh);
 
         if (!mesh.hasNormal() || !mesh.hasUV())
         {
@@ -173,18 +144,16 @@ int main(void)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
+        if (!FloorMesh.hasNormal() || !FloorMesh.hasUV())
+        {
+            std::cerr << "FloorMesh does not have normal or uv\n";
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        GLfloat playerRadius = 0.1f;
 
-        GLfloat playerRadius = 0.05f;
-        // maze initialize
         maze -> init(map);
 
-        // store horizontal wall planes (not including blocked ones)
-        // wallPlanes = WallPlane::storeWallPlanes(maze, cubeMesh);
-        
-
-        float degree = 0.0f;
         glm::vec3 object_color{1.0f};
-
 
         prog.use();
         prog["text"] = 0;
@@ -193,15 +162,15 @@ int main(void)
 
         glEnable(GL_DEPTH_TEST);
 
+        glm::mat4 lightprojection = glm::perspective(90.0f / 180.0f * 3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
+        glm::mat4 lamplightview = glm::lookAt(lamp_pos, lamp_center, glm::vec3(1.0, 0.0, 0.0));
+
         while (!glfwWindowShouldClose(window))
         {
             glm::vec3 prevCamPos = camera.Position;
 
             glm::vec3 light_pos = camera.Position + camera.light_offset;
             glm::vec3 light_center = camera.Position + camera.Front;
-
-            glm::vec3 lamp_pos = glm::vec3(-10.0f, 10.0f, 0.0f);
-            glm::vec3 lamp_center = glm::vec3(7.0f, 0.0f, 8.5f);
 
             float currentFrame = glfwGetTime();
             deltaTime = currentFrame - lastFrame;
@@ -214,13 +183,9 @@ int main(void)
             glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // 1. render depth of scene to texture
-            float near_plane = 0.1f, far_plane = 1000.0f;
-
-            glm::mat4 lightprojection, lightview;
+            glm::mat4 lightview;
             glm::mat4 lightspacematrix;
 
-            lightprojection = glm::perspective(40.0f / 180.0f * 3.1415926f, (GLfloat)1024 / (GLfloat)1024, near_plane, far_plane);
             lightview = camera.GetLightMatrix();
             lightspacematrix = lightprojection * lightview;
             depthshader.use();
@@ -228,26 +193,23 @@ int main(void)
 
             shadow.generate();
             glCullFace(GL_FRONT);
-            renderScene(depthshader, mesh, cubeMesh, degree);
+            renderScene(depthshader, FloorMesh, mesh, cubeMesh);
             glCullFace(GL_BACK);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-            ///////////////////////////////////////////
 
             glm::mat4 lamplightspacematrix;
 
-            lightview = glm::lookAt(lamp_pos, lamp_center, glm::vec3(0.0, 1.0, 0.0));
-            lamplightspacematrix = lightprojection * lightview;
+            lamplightspacematrix = lightprojection * lamplightview;
             depthshader.use();
             depthshader["lightspacematrix"] = lamplightspacematrix;
 
             lamp_shadow.generate();
             glCullFace(GL_FRONT);
-            renderScene(depthshader, mesh, cubeMesh, degree);
+            renderScene(depthshader, FloorMesh, mesh, cubeMesh);
             glCullFace(GL_BACK);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-            ///////////////////////////////////////////
             int display_w, display_h;
             glfwGetFramebufferSize(window, &display_w, &display_h);
             glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -259,82 +221,44 @@ int main(void)
             prog.use();
             prog["lightspacematrix"] = lightspacematrix;
             prog["lamplightspacematrix"] = lamplightspacematrix;
-            prog["vp"] = glm::perspective(30 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) * camera.GetViewMatrix();
+            prog["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) * camera.GetViewMatrix();
             prog["object_color"] = object_color;
 
             prog["light_pos"] = light_pos;
             prog["lamp_pos"] = lamp_pos;
+            prog["lamp_center"] = lamp_center;
             prog["eye_pos"] = camera.Position; // set to the entrance of maze
-            prog["cutoff"] = glm::cos(glm::radians(20.0f));
+            prog["cutoff"] = glm::cos(glm::radians(15.0f));
             prog["light_center"] = light_center;
 
-            text.bindToChannel(0);
+            text.bindToChannel(0); 
             shadow.bindToChannel(1);
             lamp_shadow.bindToChannel(2);
-            renderScene(prog, mesh, cubeMesh, degree);
-            {
-                prog2["vp"] = glm::perspective(45 / 180.0f * 3.1415926f, 1024.0f / 768.0f, 0.1f, 10000.0f) *
-                              glm::lookAt(glm::vec3{0, 0, 10}, glm::vec3{0, 0, 10}, glm::vec3{0, 1, 0});
-                prog2["model"] = glm::translate(glm::mat4(1.0f), light_pos) * glm::scale(glm::mat4(1.0f), glm::vec3{0.2f});
 
-                prog2.use();
-                //mesh.draw();
-            }
+            renderScene(prog, FloorMesh, mesh, cubeMesh);
 
-
-            // GLfloat xMin, xMax, zMin, zMax;
-            // bool inXRange;
-            // bool inZRange;
-            // // collision detection
-            // for (int i = 0; i < wallPlanes.size(); i++) {
-            //     xMin = wallPlanes[i].wall_vertices[0];
-            //     xMax = wallPlanes[i].wall_vertices[3];
-            //     zMin = wallPlanes[i].wall_vertices[2];
-            //     zMax = wallPlanes[i].wall_vertices[5];
-                
-            //     if (xMin > xMax) {
-            //         std::swap(xMin, xMax);
-            //     }
-
-            //     if (zMin > zMax) {
-            //         std::swap(zMin, zMax);
-            //     }
-                
-            //     inXRange = (zMin == zMax) && (camera.Position.x > xMin && camera.Position.x < xMax);
-            //     inZRange = (xMin == xMax) && (camera.Position.z > zMin && camera.Position.z < zMax);
-
-                                
-            //     if ((inXRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1) ||
-            //         (inZRange && WallPlane::distToWallPlane(camera.Position, wallPlanes[i]) <= 0.1)) {
-                
-            //         std::cout << "Collided. " << i << std::endl;
-            //     }
-            // }
-
-            // draw ball
-            prog["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            text.bindToChannel(0);
-            mesh.draw(false);
-
-
-            // collision detection w/ bbox checking  
-            GLfloat xLow, xHigh, zLow, zHigh;
+            // collision detection w/ bbox checking 
+            GLfloat xLow, xHigh, zLow, zHigh, floorHeight;
+            floorHeight = 0.3f;
             for (int i = 0; i < MAZE_ROW; i++) {
                 for (int j = 0; j < MAZE_COL; j++) {
                     xLow = (-0.5 + i) - playerRadius;
                     xHigh = (0.5 + i) + playerRadius;
                     zLow = (-0.5 + j) - playerRadius;
                     zHigh = (0.5 + j) + playerRadius;
-
-                    if (inRange(xLow, xHigh, camera.Position.x) && inRange(zLow, zHigh, camera.Position.z) && maze -> map[i][j] == 1) {
+                    
+                    if ((inRange(xLow, xHigh, camera.Position.x) && 
+                        inRange(zLow, zHigh, camera.Position.z) &&
+                        maze -> map[i][j] == 1) ||
+                        camera.Position.y <= floorHeight) 
+                    {
                         std::cout << "wall." << i << " " << j << std::endl;
                         camera.Position = prevCamPos;
                     }
                 }
             }
-            
 
-                    
+
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -344,10 +268,9 @@ int main(void)
             {
                 ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
 
-                ImGui::SliderFloat("degree", &degree, 0.0f, 360.0f); // Edit 1 float using a slider from 0.0f to 1.0f
                 ImGui::ColorEdit3("clear color", (float *)&clear_color);         // Edit 3 floats representing a color
-                ImGui::ColorEdit3("object color", glm::value_ptr(object_color)); // Edit 3 floats representing a color
-                ImGui::SliderFloat2("Position", glm::value_ptr(light_center), -10, 10);
+                //ImGui::ColorEdit3("object color", glm::value_ptr(object_color)); // Edit 3 floats representing a color
+                //ImGui::SliderFloat2("Position", glm::value_ptr(light_center), -10, 10);
 
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
                 ImGui::End();
@@ -366,17 +289,16 @@ int main(void)
     exit(EXIT_SUCCESS);
 }
 
-void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree)
+void renderScene(Program &shader, StaticMesh &floor, StaticMesh &mesh, StaticMesh &cubeMesh)
 {
     // draw plane
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
-    glBindVertexArray(planeVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    
+    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3{10.0f}) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
+    floor.draw(false);
 
     // draw maze
-    maze -> drawMaze(shader, cubeMesh); 
+    // maze -> drawMaze(shader, cubeMesh); 
+    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    cubeMesh.draw(false);
 }
 
 void processInput(GLFWwindow *window)
