@@ -93,5 +93,5 @@ void main()
     }
 
     vec3 result = (ambient+ (1.0 - shadow) * light_diff) * object_color; 
-    color = vec4(result, 1.0);
+    color = vec4(result, 1.0) * texture(text, g_uv);
 }

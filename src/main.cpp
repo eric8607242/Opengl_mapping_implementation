@@ -154,12 +154,6 @@ int main(void)
         {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1}
     };
 
-    int test_map[MAZE_ROW][MAZE_COL] = {
-        {1, 1, 1},
-        {1, 0, 1},
-        {1, 0, 1}
-    };
-
     {
         // text and mesh, shader => garbage collector
         auto g1 = Protect(text);
@@ -180,7 +174,7 @@ int main(void)
         }
 
 
-        GLfloat playerRadius = 0.1f;
+        GLfloat playerRadius = 0.05f;
         // maze initialize
         maze -> init(map);
 
@@ -317,6 +311,11 @@ int main(void)
             //     }
             // }
 
+            // draw ball
+            prog["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            text.bindToChannel(0);
+            mesh.draw(false);
+
 
             // collision detection w/ bbox checking  
             GLfloat xLow, xHigh, zLow, zHigh;
@@ -353,6 +352,7 @@ int main(void)
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
                 ImGui::End();
             }
+ 
 
             // Rendering
             ImGui::Render();
@@ -369,14 +369,14 @@ int main(void)
 void renderScene(Program &shader, StaticMesh &mesh, StaticMesh &cubeMesh, float degree)
 {
     // draw plane
-    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
+    shader["model"] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), 270.0f * 3.1415926f / 180.0f, glm::vec3(1, 0, 0));
     glBindVertexArray(planeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
+    
 
     // draw maze
-    maze -> drawMaze(shader, cubeMesh);
-  
+    maze -> drawMaze(shader, cubeMesh); 
 }
 
 void processInput(GLFWwindow *window)
