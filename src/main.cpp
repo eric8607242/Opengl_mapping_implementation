@@ -33,7 +33,7 @@ static void error_callback(int error, const char *description)
     std::cerr << fmt::format("Error: {0}\n", description);
 }
 
-Camera camera(glm::vec3(0.0f, 1.0f, 7.0f));
+Camera camera(glm::vec3(0.0f, 0.5f, 7.0f));
 
 Maze *maze;
 

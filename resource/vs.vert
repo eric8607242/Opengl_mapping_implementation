@@ -35,7 +35,7 @@ void main()
     v_fragposlamplightspace = lamplightspacematrix * vec4(v_fragpos, 1.0);
     //v_uv = texcoord;
 
-    v_uv = vec2(texcoord.x,-texcoord.y);
+    v_uv = vec2(texcoord.x,texcoord.y);
 
     vec3 v_tangent = ((transpose(inverse(model))) * vec4(tangent,0.0)).xyz;
 	vec3 v_bitangent = ((transpose(inverse(model))) * vec4(bitangent,0.0)).xyz;
