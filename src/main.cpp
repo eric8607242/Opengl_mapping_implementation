@@ -63,7 +63,7 @@ int main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    window = glfwCreateWindow(1024, 768, "Simple example", NULL, NULL);
+    window = glfwCreateWindow(1024, 768, "OpenGL First Person Maze", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -91,9 +91,9 @@ int main(void)
     ImGui::StyleColorsDark();
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    auto text = Texture2D::LoadFromFile("../resource/wall.png");
-    auto textNormal = Texture2D::LoadFromFile("../resource/wall_NRM.png");
-    auto textDisp = Texture2D::LoadFromFile("../resource/wall_DISP.png");
+    auto text = Texture2D::LoadFromFile("../resource/wall_6.png");
+    auto textNormal = Texture2D::LoadFromFile("../resource/wall_6_NRM.png");
+    auto textDisp = Texture2D::LoadFromFile("../resource/wall_6_DISP.png");
     auto mesh = StaticMesh::LoadMesh("../resource/sphere.obj", false);
     auto cubeMesh = StaticMesh::LoadMesh("../resource/cube.obj", false);
     auto FloorMesh = StaticMesh::LoadMesh("../resource/floor.obj", false);
@@ -159,6 +159,8 @@ int main(void)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
         GLfloat playerRadius = 0.1f;
+        GLfloat floorHeight = 0.2f;
+        GLfloat xLow, xHigh, zLow, zHigh;
 
         maze -> init(map);
 
@@ -254,8 +256,6 @@ int main(void)
             renderScene(prog, FloorMesh, mesh, cubeMesh);
 
             // collision detection w/ bbox checking 
-            GLfloat xLow, xHigh, zLow, zHigh, floorHeight;
-            floorHeight = 0.3f;
             for (int i = 0; i < MAZE_ROW; i++) {
                 for (int j = 0; j < MAZE_COL; j++) {
                     xLow = (-0.5 + i) - playerRadius;
@@ -268,7 +268,7 @@ int main(void)
                         maze -> map[i][j] == 1) ||
                         camera.Position.y <= floorHeight) 
                     {
-                        std::cout << "wall." << i << " " << j << std::endl;
+                        std::cout << "collided with cell." << i << " " << j << std::endl;
                         camera.Position = prevCamPos;
                     }
                 }
